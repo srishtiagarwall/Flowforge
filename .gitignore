@@ -1,0 +1,22 @@
+docs
+read.md
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
