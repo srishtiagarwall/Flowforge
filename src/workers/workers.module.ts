@@ -3,7 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { RunProcessor } from './run.processor';
 import { RunsModule } from '../runs/runs.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
-import { ObservabilityModule } from '../observability/observability.module';
+import { ExecutionModule } from '../execution/execution.module';
 import { WORKFLOW_RUNS_QUEUE } from '../common/queue/constants';
 
 @Module({
@@ -11,7 +11,7 @@ import { WORKFLOW_RUNS_QUEUE } from '../common/queue/constants';
     BullModule.registerQueue({ name: WORKFLOW_RUNS_QUEUE }),
     RunsModule,
     WorkflowsModule,
-    ObservabilityModule,
+    ExecutionModule,
   ],
   providers: [RunProcessor],
 })

@@ -7,6 +7,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { RunsModule } from './runs/runs.module';
 import { WorkersModule } from './workers/workers.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { ExecutionModule } from './execution/execution.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ObservabilityModule } from './observability/observability.module';
     WorkflowsModule,
     ObservabilityModule,
     RunsModule,
+    ExecutionModule,
     WorkersModule,
   ],
 })
