@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tenant } from './tenant.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class TenantsService {
@@ -15,7 +15,7 @@ export class TenantsService {
   async create(dto: CreateTenantDto): Promise<Tenant> {
     const tenant = this.repo.create({
       ...dto,
-      api_key: `ff_${uuidv4().replace(/-/g, '')}`,
+      api_key: `ff_${randomUUID().replace(/-/g, '')}`,
     });
     return this.repo.save(tenant);
   }

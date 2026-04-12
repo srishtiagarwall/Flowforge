@@ -22,7 +22,7 @@ import { ExecutionModule } from './execution/execution.module';
         password: config.get('DATABASE_PASSWORD', 'postgres'),
         database: config.get('DATABASE_NAME', 'flowforge'),
         autoLoadEntities: true,
-        synchronize: true, // disable in production
+        synchronize: config.get('DATABASE_SYNCHRONIZE', 'false') === 'true',
       }),
     }),
     BullModule.forRootAsync({

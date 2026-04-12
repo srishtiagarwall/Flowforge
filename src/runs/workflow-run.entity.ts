@@ -44,6 +44,9 @@ export class WorkflowRun {
   @Column({ type: 'jsonb', nullable: true })
   output!: Record<string, unknown> | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  artifacts!: Array<Record<string, unknown>> | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at!: Date;
 
@@ -55,4 +58,16 @@ export class WorkflowRun {
 
   @Column({ default: 0 })
   total_tokens!: number;
+
+  @Column({ default: 0 })
+  attempt_count!: number;
+
+  @Column({ type: 'text', nullable: true })
+  last_error!: string | null;
+
+  @Column({ type: 'integer', nullable: true })
+  webhook_status!: number | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  webhook_last_attempt_at!: Date | null;
 }

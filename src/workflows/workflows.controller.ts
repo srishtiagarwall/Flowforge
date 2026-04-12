@@ -10,13 +10,28 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiHeader,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { WorkflowsService } from './workflows.service';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import { TenantAuthGuard } from '../common/guards/tenant-auth.guard';
 import { CurrentTenant } from '../common/decorators/current-tenant.decorator';
 import { Tenant } from '../tenants/tenant.entity';
+import { WorkflowResponseDto } from '../common/swagger/api.models';
 
+@ApiTags('Workflows')
+@ApiHeader({
+  name: 'x-api-key',
+  description: 'Tenant API key',
+  required: true,
+})
 @Controller('workflows')
 @UseGuards(TenantAuthGuard)
 export class WorkflowsController {
@@ -24,6 +39,8 @@ export class WorkflowsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a workflow for the current tenant' })
+  @ApiCreatedResponse({ type: WorkflowResponseDto })
   async create(
     @CurrentTenant() tenant: Tenant,
     @Body() dto: CreateWorkflowDto,
@@ -32,16 +49,22 @@ export class WorkflowsController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'List workflows for the current tenant' })
+  @ApiOkResponse({ type: WorkflowResponseDto, isArray: true })
   async findAll(@CurrentTenant() tenant: Tenant) {
     return this.workflowsService.findAll(tenant.id);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get one workflow by id' })
+  @ApiOkResponse({ type: WorkflowResponseDto })
   async findOne(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     return this.workflowsService.findOne(tenant.id, id);
   }
 
   @Put(':id')
+  @ApiOperation({ summary: 'Update a workflow' })
+  @ApiOkResponse({ type: WorkflowResponseDto })
   async update(
     @CurrentTenant() tenant: Tenant,
     @Param('id') id: string,
@@ -52,6 +75,8 @@ export class WorkflowsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Soft-delete a workflow' })
+  @ApiNoContentResponse()
   async remove(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     await this.workflowsService.softDelete(tenant.id, id);
   }

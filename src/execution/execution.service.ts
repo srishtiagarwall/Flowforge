@@ -1,13 +1,54 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Annotation, END, START, StateGraph } from '@langchain/langgraph';
 import { CompiledGraph } from '../workflows/compiler/compiler.service';
 import { CompilerService } from '../workflows/compiler/compiler.service';
 import { ObservabilityService } from '../observability/observability.service';
 import { LLMFactoryService } from './llm/llm-factory.service';
 import { ToolRegistryService } from './tools/tool-registry.service';
+import { ConditionEvaluatorService } from './conditions/condition-evaluator.service';
+import {
+  ConditionWorkflowNode,
+  WorkflowNode,
+} from '../workflows/compiler/workflow-definition.types';
+
+interface TraceRecord {
+  step_name: string;
+  input_snapshot: Record<string, unknown> | null;
+  output_snapshot: Record<string, unknown> | null;
+  latency_ms: number;
+  tokens_used: number;
+  error: string | null;
+}
+
+const ExecutionStateAnnotation = Annotation.Root({
+  input: Annotation<Record<string, unknown>>({
+    reducer: (_left, right) => right,
+    default: () => ({}),
+  }),
+  values: Annotation<Record<string, unknown>>({
+    reducer: (left, right) => ({ ...left, ...right }),
+    default: () => ({}),
+  }),
+  traces: Annotation<TraceRecord[]>({
+    reducer: (left, right) => left.concat(right),
+    default: () => [],
+  }),
+  totalTokens: Annotation<number>({
+    reducer: (left, right) => left + right,
+    default: () => 0,
+  }),
+  routeTarget: Annotation<string | null>({
+    reducer: (_left, right) => right,
+    default: () => null,
+  }),
+});
+
+type ExecutionState = typeof ExecutionStateAnnotation.State;
 
 export interface ExecutionResult {
-  finalState: Record<string, unknown>;
+  output: Record<string, unknown>;
   totalTokens: number;
+  traces: TraceRecord[];
 }
 
 @Injectable()
@@ -19,6 +60,7 @@ export class ExecutionService {
     private readonly llmFactory: LLMFactoryService,
     private readonly toolRegistry: ToolRegistryService,
     private readonly observabilityService: ObservabilityService,
+    private readonly conditionEvaluator: ConditionEvaluatorService,
   ) {}
 
   async execute(
@@ -26,171 +68,165 @@ export class ExecutionService {
     input: Record<string, unknown>,
     runId: string,
   ): Promise<ExecutionResult> {
-    const state: Record<string, unknown> = { input };
-    const executedNodes = new Set<string>();
-    let totalTokens = 0;
+    const stateGraph = new StateGraph(ExecutionStateAnnotation) as any;
 
-    const executeNode = async (nodeId: string): Promise<void> => {
-      if (executedNodes.has(nodeId)) return;
+    for (const node of graph.nodes.values()) {
+      stateGraph.addNode(node.id, async (state: ExecutionState) =>
+        this.executeNode(node, state, runId),
+      );
+    }
 
-      const node = graph.nodes.get(nodeId)!;
+    for (const entryNodeId of graph.entryNodes) {
+      stateGraph.addEdge(START, entryNodeId);
+    }
 
-      // Execute dependencies first
-      if (node.depends_on) {
-        for (const dep of node.depends_on) {
-          if (!executedNodes.has(dep)) {
-            await executeNode(dep);
-          }
+    for (const node of graph.nodes.values()) {
+      if (node.type === 'condition') {
+        stateGraph.addConditionalEdges(
+          node.id,
+          (state: ExecutionState) => state.routeTarget ?? END,
+        );
+      }
+    }
+
+    for (const node of graph.nodes.values()) {
+      if (node.type !== 'condition' && graph.terminalNodes.includes(node.id)) {
+        stateGraph.addEdge(node.id, END);
+      }
+    }
+
+    for (const node of graph.nodes.values()) {
+      if ((node.depends_on?.length ?? 0) > 1) {
+        stateGraph.addEdge(node.depends_on!, node.id);
+        continue;
+      }
+      for (const dep of node.depends_on ?? []) {
+        stateGraph.addEdge(dep, node.id);
+      }
+    }
+
+    const executable = stateGraph.compile();
+    const result = await executable.invoke({
+      input,
+      values: {},
+      traces: [],
+      totalTokens: 0,
+      routeTarget: null,
+    });
+
+    return {
+      output: result.values,
+      totalTokens: result.totalTokens,
+      traces: result.traces,
+    };
+  }
+
+  private async executeNode(
+    node: WorkflowNode,
+    state: ExecutionState,
+    runId: string,
+  ): Promise<Partial<ExecutionState>> {
+    const scope = this.getTemplateScope(state);
+    const startedAt = Date.now();
+    let tokensUsed = 0;
+    let outputSnapshot: Record<string, unknown> = {};
+    let inputSnapshot: Record<string, unknown> | null = null;
+    let errorMessage: string | null = null;
+    let partialState: Partial<ExecutionState> = {};
+
+    try {
+      switch (node.type) {
+        case 'llm': {
+          const prompt = this.compilerService.resolveTemplate(node.prompt, scope);
+          inputSnapshot = { prompt, model: node.model };
+
+          const adapter = this.llmFactory.getAdapter(node.model);
+          const response = await adapter.call(node.model, prompt);
+          tokensUsed = response.tokens;
+          outputSnapshot = {
+            result: response.text,
+            model: node.model,
+            tokens: response.tokens,
+          };
+          partialState = {
+            values: { [node.output_key]: response.text },
+            totalTokens: tokensUsed,
+            routeTarget: null,
+          };
+          break;
+        }
+        case 'tool': {
+          const params = (this.compilerService.resolveValue(
+            node.params ?? {},
+            scope,
+          ) ?? {}) as Record<string, unknown>;
+          inputSnapshot = { params, tool: node.tool };
+          const result = await this.toolRegistry.execute(node.tool, params, scope);
+          outputSnapshot = { result, tool: node.tool };
+          partialState = {
+            values: node.output_key ? { [node.output_key]: result } : {},
+            routeTarget: null,
+          };
+          break;
+        }
+        case 'condition': {
+          const routeTarget = this.resolveConditionRoute(node, scope);
+          inputSnapshot = { branches: node.branches };
+          outputSnapshot = { routeTarget };
+          partialState = { routeTarget };
+          break;
         }
       }
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Node "${node.id}" failed: ${errorMessage}`);
+    }
 
-      const startTime = Date.now();
-      let stepOutput: Record<string, unknown> = {};
-      let stepError: string | null = null;
-      let tokensUsed = 0;
-
-      try {
-        switch (node.type) {
-          case 'llm': {
-            const model = node.model ?? 'gpt-4o-mini';
-            const resolvedPrompt = node.prompt
-              ? this.compilerService.resolveTemplate(node.prompt, state)
-              : '';
-
-            const adapter = this.llmFactory.getAdapter(model);
-            const response = await adapter.call(model, resolvedPrompt);
-
-            tokensUsed = response.tokens;
-            totalTokens += tokensUsed;
-
-            stepOutput = {
-              result: response.text,
-              model,
-              tokens: response.tokens,
-            };
-
-            if (node.output_key) {
-              state[node.output_key] = response.text;
-            }
-            break;
-          }
-
-          case 'tool': {
-            const toolName = node.tool ?? '';
-            const params = node.params
-              ? this.resolveParams(node.params, state)
-              : {};
-
-            const result = await this.toolRegistry.execute(toolName, params, state);
-
-            stepOutput = { result, tool: toolName };
-
-            if (node.output_key) {
-              state[node.output_key] = result;
-            }
-            break;
-          }
-
-          case 'condition': {
-            if (node.branches) {
-              let matched = false;
-
-              for (const [branchName, branch] of Object.entries(node.branches)) {
-                if (this.evaluateCondition(branch.condition, state)) {
-                  this.logger.log(
-                    `Condition node "${nodeId}": branch "${branchName}" matched`,
-                  );
-                  stepOutput = { branch: branchName, next: branch.next };
-                  if (branch.next) {
-                    await executeNode(branch.next);
-                  }
-                  matched = true;
-                  break;
-                }
-              }
-
-              if (!matched) {
-                this.logger.warn(
-                  `Condition node "${nodeId}": no branch matched`,
-                );
-                stepOutput = { branch: null, message: 'No condition matched' };
-              }
-            }
-            break;
-          }
-        }
-      } catch (err) {
-        stepError = err instanceof Error ? err.message : String(err);
-        this.logger.error(`Node "${nodeId}" failed: ${stepError}`);
-      }
-
-      const latencyMs = Date.now() - startTime;
-
-      await this.observabilityService.writeTrace({
-        run_id: runId,
-        step_name: nodeId,
-        input_snapshot:
-          node.type === 'llm'
-            ? {
-                prompt: node.prompt
-                  ? this.compilerService.resolveTemplate(node.prompt, state)
-                  : '',
-              }
-            : node.type === 'tool'
-              ? { params: node.params ?? null }
-              : { branches: node.branches ?? null },
-        output_snapshot: stepOutput,
-        latency_ms: latencyMs,
-        tokens_used: tokensUsed,
-        error: stepError,
-      });
-
-      executedNodes.add(nodeId);
+    const trace = {
+      step_name: node.id,
+      input_snapshot: inputSnapshot,
+      output_snapshot: outputSnapshot,
+      latency_ms: Date.now() - startedAt,
+      tokens_used: tokensUsed,
+      error: errorMessage,
     };
 
-    // Execute from entry nodes
-    for (const entryNodeId of graph.entryNodes) {
-      await executeNode(entryNodeId);
+    await this.observabilityService.writeTrace({
+      run_id: runId,
+      ...trace,
+    });
+
+    if (errorMessage) {
+      throw new Error(errorMessage);
     }
 
-    // Catch any nodes not reachable from entry nodes (shouldn't happen with a valid DAG)
-    for (const nodeId of graph.nodes.keys()) {
-      if (!executedNodes.has(nodeId)) {
-        await executeNode(nodeId);
+    return {
+      ...partialState,
+      traces: [trace],
+    };
+  }
+
+  private resolveConditionRoute(
+    node: ConditionWorkflowNode,
+    scope: Record<string, unknown>,
+  ): string | null {
+    for (const [branchName, branch] of Object.entries(node.branches)) {
+      if (this.conditionEvaluator.evaluate(branch.condition, scope)) {
+        this.logger.log(
+          `Condition node "${node.id}": branch "${branchName}" matched`,
+        );
+        return branch.next;
       }
     }
 
-    return { finalState: state, totalTokens };
+    this.logger.warn(`Condition node "${node.id}": no branch matched`);
+    return null;
   }
 
-  private evaluateCondition(
-    condition: string,
-    state: Record<string, unknown>,
-  ): boolean {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
-      const fn = new Function('state', `"use strict"; return !!(${condition});`);
-      return fn(state) as boolean;
-    } catch (err) {
-      this.logger.warn(
-        `Failed to evaluate condition "${condition}": ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return false;
-    }
-  }
-
-  private resolveParams(
-    params: Record<string, unknown>,
-    state: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const resolved: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(params)) {
-      if (typeof value === 'string') {
-        resolved[key] = this.compilerService.resolveTemplate(value, state);
-      } else {
-        resolved[key] = value;
-      }
-    }
-    return resolved;
+  private getTemplateScope(state: ExecutionState): Record<string, unknown> {
+    return {
+      input: state.input,
+      ...state.values,
+    };
   }
 }

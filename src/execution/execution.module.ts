@@ -6,6 +6,7 @@ import { AnthropicAdapter } from './llm/anthropic.adapter';
 import { GeminiAdapter } from './llm/gemini.adapter';
 import { ToolRegistryService } from './tools/tool-registry.service';
 import { WorkflowsModule } from '../workflows/workflows.module';
+import { ConditionEvaluatorService } from './conditions/condition-evaluator.service';
 
 @Module({
   imports: [WorkflowsModule],
@@ -15,6 +16,7 @@ import { WorkflowsModule } from '../workflows/workflows.module';
     GeminiAdapter,
     LLMFactoryService,
     ToolRegistryService,
+    ConditionEvaluatorService,
     ExecutionService,
   ],
   exports: [ExecutionService, ToolRegistryService],

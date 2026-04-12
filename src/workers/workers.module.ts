@@ -4,11 +4,17 @@ import { RunProcessor } from './run.processor';
 import { RunsModule } from '../runs/runs.module';
 import { WorkflowsModule } from '../workflows/workflows.module';
 import { ExecutionModule } from '../execution/execution.module';
-import { WORKFLOW_RUNS_QUEUE } from '../common/queue/constants';
+import {
+  WORKFLOW_RUNS_DLQ,
+  WORKFLOW_RUNS_QUEUE,
+} from '../common/queue/constants';
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: WORKFLOW_RUNS_QUEUE }),
+    BullModule.registerQueue(
+      { name: WORKFLOW_RUNS_QUEUE },
+      { name: WORKFLOW_RUNS_DLQ },
+    ),
     RunsModule,
     WorkflowsModule,
     ExecutionModule,
