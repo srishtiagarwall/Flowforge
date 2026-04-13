@@ -44,6 +44,10 @@ DATABASE_SYNCHRONIZE=true
 npm run start:dev
 ```
 
+## Architecture
+
+The high-level architecture diagram is available at [docs/hld_workflow_engine.svg](/abs/path/C:/Users/srish/OneDrive/Desktop/Backup/Personal/Flowforge/Flowforge/docs/hld_workflow_engine.svg).
+
 ## Test And Build
 
 ```bash
@@ -109,6 +113,80 @@ npm run test:e2e
 - `GET /workflows/:id/runs`
 
 All workflow and run endpoints require `x-api-key`.
+
+## Curl Demo
+
+Create a tenant:
+
+```bash
+curl -X POST http://localhost:3000/tenants \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Demo Tenant","plan":"pro"}'
+```
+
+Create a workflow:
+
+```bash
+curl -X POST http://localhost:3000/workflows \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: <TENANT_API_KEY>" \
+  -d '{
+    "name":"Lead Qualification",
+    "status":"active",
+    "definition":{
+      "id":"wf_lead_qualify_v1",
+      "name":"Lead qualification workflow",
+      "trigger":"api",
+      "artifact_keys":["score"],
+      "nodes":[
+        {
+          "id":"score_lead",
+          "type":"llm",
+          "model":"gpt-4o-mini",
+          "prompt":"Score this lead: {{input.lead}}",
+          "output_key":"score"
+        }
+      ]
+    }
+  }'
+```
+
+Trigger a run:
+
+```bash
+curl -X POST http://localhost:3000/workflows/<WORKFLOW_ID>/run \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: <TENANT_API_KEY>" \
+  -H "idempotency-key: demo-run-1" \
+  -d '{
+    "input":{
+      "lead":"ACME Corp wants a pricing quote"
+    }
+  }'
+```
+
+Poll run status:
+
+```bash
+curl http://localhost:3000/runs/<RUN_ID> \
+  -H "x-api-key: <TENANT_API_KEY>"
+```
+
+Fetch traces:
+
+```bash
+curl http://localhost:3000/runs/<RUN_ID>/traces \
+  -H "x-api-key: <TENANT_API_KEY>"
+```
+
+List workflow runs:
+
+```bash
+curl "http://localhost:3000/workflows/<WORKFLOW_ID>/runs?page=1&limit=20" \
+  -H "x-api-key: <TENANT_API_KEY>"
+```
+
+The Postman collection for the planned API contract is available at [docs/postman_collection.json](/abs/path/C:/Users/srish/OneDrive/Desktop/Backup/Personal/Flowforge/Flowforge/docs/postman_collection.json).
 
 ## Built-in Tools
 
