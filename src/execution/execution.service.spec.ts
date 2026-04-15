@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { ExecutionService } from './execution.service';
 import { CompilerService } from '../workflows/compiler/compiler.service';
 import { ConditionEvaluatorService } from './conditions/condition-evaluator.service';
@@ -6,7 +7,10 @@ import { ToolRegistryService } from './tools/tool-registry.service';
 describe('ExecutionService', () => {
   it('executes a simple workflow through LangGraph', async () => {
     const conditionEvaluator = new ConditionEvaluatorService();
-    const compilerService = new CompilerService(conditionEvaluator);
+    const compilerService = new CompilerService(
+      conditionEvaluator,
+      new ConfigService({ OPENAI_API_KEY: 'test-openai-key' }),
+    );
     const llmFactory = {
       getAdapter: () => ({
         call: async () => ({ text: '42', tokens: 3 }),

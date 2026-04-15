@@ -76,7 +76,12 @@ describe('App integration', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: (key: string, defaultValue?: unknown) => defaultValue,
+            get: (key: string, defaultValue?: unknown) => {
+              if (key === 'OPENAI_API_KEY') {
+                return 'test-openai-key';
+              }
+              return defaultValue;
+            },
           },
         },
         {

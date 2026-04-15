@@ -44,9 +44,24 @@ DATABASE_SYNCHRONIZE=true
 npm run start:dev
 ```
 
+7. Open the built-in operator console:
+
+```text
+http://localhost:3000/app
+```
+
 ## Architecture
 
 The high-level architecture diagram is available at [docs/hld_workflow_engine.svg](/abs/path/C:/Users/srish/OneDrive/Desktop/Backup/Personal/Flowforge/Flowforge/docs/hld_workflow_engine.svg).
+
+## Frontend Console
+
+The repo now includes a lightweight frontend served by the Nest app at `/app`. It covers:
+
+- tenant creation and API key capture
+- workflow list, create, update, and delete
+- raw JSON workflow editing with a Gemini sample
+- run trigger, status refresh, history loading, and trace viewing
 
 ## Test And Build
 
@@ -113,6 +128,8 @@ npm run test:e2e
 - `GET /workflows/:id/runs`
 
 All workflow and run endpoints require `x-api-key`.
+
+Workflow definitions with `llm` nodes are validated against configured provider API keys during create/update, so unsupported model prefixes or missing provider keys fail before a run is queued.
 
 ## Curl Demo
 

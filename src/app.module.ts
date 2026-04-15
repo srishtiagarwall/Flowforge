@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import { AppController } from './app.controller';
 import { TenantsModule } from './tenants/tenants.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 import { RunsModule } from './runs/runs.module';
@@ -10,6 +11,7 @@ import { ObservabilityModule } from './observability/observability.module';
 import { ExecutionModule } from './execution/execution.module';
 
 @Module({
+  controllers: [AppController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({

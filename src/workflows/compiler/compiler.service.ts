@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ConditionEvaluatorService } from '../../execution/conditions/condition-evaluator.service';
 import {
   ConditionWorkflowNode,
+  LlmWorkflowNode,
   WorkflowDefinition,
   WorkflowNode,
 } from './workflow-definition.types';
@@ -19,6 +21,7 @@ export interface CompiledGraph {
 export class CompilerService {
   constructor(
     private readonly conditionEvaluator: ConditionEvaluatorService,
+    private readonly configService: ConfigService,
   ) {}
 
   compile(definition: Record<string, unknown>): CompiledGraph {
@@ -161,6 +164,7 @@ export class CompilerService {
               `LLM node "${node.id}" requires model, prompt, and output_key`,
             );
           }
+          this.validateLlmProvider(node);
           break;
         case 'tool':
           if (!node.tool?.trim()) {
@@ -204,6 +208,38 @@ export class CompilerService {
     }
 
     return definition;
+  }
+
+  private validateLlmProvider(node: LlmWorkflowNode): void {
+    const envKey = this.resolveProviderEnvKey(node.model);
+    const configuredKey = this.configService.get<string>(envKey);
+
+    if (!configuredKey?.trim()) {
+      throw new BadRequestException(
+        `LLM node "${node.id}" uses model "${node.model}" but ${envKey} is not configured`,
+      );
+    }
+  }
+
+  private resolveProviderEnvKey(model: string): string {
+    if (
+      model.startsWith('gpt-') ||
+      model.startsWith('o1') ||
+      model.startsWith('o3') ||
+      model.startsWith('o4')
+    ) {
+      return 'OPENAI_API_KEY';
+    }
+    if (model.startsWith('claude-')) {
+      return 'ANTHROPIC_API_KEY';
+    }
+    if (model.startsWith('gemini-')) {
+      return 'GEMINI_API_KEY';
+    }
+
+    throw new BadRequestException(
+      `Unsupported model "${model}". Prefix must be gpt-, o1/o3/o4, claude-, or gemini-`,
+    );
   }
 
   private detectCycles(nodeIds: Set<string>, nodes: WorkflowNode[]): void {

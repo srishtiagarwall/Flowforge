@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flowforge Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app/app.css" />
+  </head>
+  <body>
+    <div class="background-glow background-glow-a"></div>
+    <div class="background-glow background-glow-b"></div>
+    <main class="shell">
+      <section class="hero panel">
+        <div>
+          <p class="eyebrow">Frontend Phase</p>
+          <h1>Flowforge Console</h1>
+          <p class="hero-copy">
+            A thin operator UI over the current backend: tenant bootstrap,
+            workflow JSON editing, run execution, status polling, and trace
+            inspection.
+          </p>
+        </div>
+        <div class="hero-status">
+          <div class="status-card">
+            <span class="status-label">API Base</span>
+            <strong id="apiBaseLabel">Same origin</strong>
+          </div>
+          <div class="status-card">
+            <span class="status-label">Selected Workflow</span>
+            <strong id="selectedWorkflowLabel">None</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="stack">
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">1. Tenant</p>
+                <h2>Bootstrap Access</h2>
+              </div>
+              <button class="ghost-button" id="clearSessionButton" type="button">
+                Clear Session
+              </button>
+            </div>
+
+            <form id="tenantForm" class="form-grid">
+              <label>
+                <span>Tenant name</span>
+                <input id="tenantName" type="text" value="Gemini Tenant" required />
+              </label>
+              <label>
+                <span>Plan</span>
+                <select id="tenantPlan">
+                  <option value="pro">pro</option>
+                  <option value="free">free</option>
+                </select>
+              </label>
+              <button class="primary-button" type="submit">Create Tenant</button>
+            </form>
+
+            <label class="block-field">
+              <span>Active API key</span>
+              <input id="apiKeyInput" type="text" placeholder="ff_..." />
+            </label>
+            <p class="muted">
+              The console stores your current API key in local storage for this browser.
+            </p>
+            <pre class="output" id="tenantOutput">No tenant created yet.</pre>
+          </section>
+
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">2. Workflows</p>
+                <h2>List And Select</h2>
+              </div>
+              <button class="ghost-button" id="refreshWorkflowsButton" type="button">
+                Refresh
+              </button>
+            </div>
+            <div id="workflowList" class="workflow-list"></div>
+          </section>
+        </div>
+
+        <div class="stack wide">
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">3. Editor</p>
+                <h2>Create Or Update Workflow</h2>
+              </div>
+              <div class="button-row">
+                <button class="ghost-button" id="newWorkflowButton" type="button">
+                  New Draft
+                </button>
+                <button class="danger-button" id="deleteWorkflowButton" type="button">
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            <form id="workflowForm" class="stack">
+              <div class="form-grid">
+                <label>
+                  <span>Name</span>
+                  <input id="workflowName" type="text" required />
+                </label>
+                <label>
+                  <span>Status</span>
+                  <select id="workflowStatus">
+                    <option value="active">active</option>
+                    <option value="draft">draft</option>
+                  </select>
+                </label>
+              </div>
+              <label class="block-field">
+                <span>Definition JSON</span>
+                <textarea id="workflowDefinition" rows="18"></textarea>
+              </label>
+              <div class="button-row">
+                <button class="primary-button" type="submit">Save Workflow</button>
+                <button class="ghost-button" id="loadSampleButton" type="button">
+                  Load Gemini Sample
+                </button>
+              </div>
+            </form>
+            <pre class="output" id="workflowOutput">No workflow action yet.</pre>
+          </section>
+
+          <section class="panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">4. Runs</p>
+                <h2>Trigger And Inspect</h2>
+              </div>
+              <div class="button-row">
+                <button class="ghost-button" id="refreshRunButton" type="button">
+                  Refresh Run
+                </button>
+                <button class="ghost-button" id="loadHistoryButton" type="button">
+                  Load History
+                </button>
+              </div>
+            </div>
+
+            <form id="runForm" class="stack">
+              <div class="form-grid">
+                <label>
+                  <span>Idempotency key</span>
+                  <input id="idempotencyKey" type="text" placeholder="optional" />
+                </label>
+                <label>
+                  <span>Current run id</span>
+                  <input id="runIdInput" type="text" placeholder="run uuid" />
+                </label>
+              </div>
+              <label class="block-field">
+                <span>Run input JSON</span>
+                <textarea id="runInput" rows="8"></textarea>
+              </label>
+              <button class="primary-button" type="submit">Trigger Run</button>
+            </form>
+
+            <div class="explain-box" id="runExplainBox">
+              Pick or trigger a run to see what the engine is doing step by step.
+            </div>
+
+            <div class="timeline" id="runTimeline">
+              <div class="timeline-step">
+                <span class="timeline-dot"></span>
+                <div>
+                  <strong>Queued</strong>
+                  <span>The run record has been created.</span>
+                </div>
+              </div>
+              <div class="timeline-step">
+                <span class="timeline-dot"></span>
+                <div>
+                  <strong>Running</strong>
+                  <span>The worker is executing workflow nodes.</span>
+                </div>
+              </div>
+              <div class="timeline-step">
+                <span class="timeline-dot"></span>
+                <div>
+                  <strong>Done</strong>
+                  <span>Output and traces have been persisted.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="summary-grid">
+              <article class="summary-card">
+                <span class="status-label">Current Run</span>
+                <strong id="runStatusBadge">No run</strong>
+                <p id="runMetaText" class="muted compact">
+                  Trigger a workflow to populate this view.
+                </p>
+              </article>
+              <article class="summary-card">
+                <span class="status-label">Tokens</span>
+                <strong id="runTokensValue">0</strong>
+                <p id="runAttemptText" class="muted compact">Attempts: 0</p>
+              </article>
+              <article class="summary-card">
+                <span class="status-label">Trace Count</span>
+                <strong id="runTraceCount">0</strong>
+                <p id="runTraceHint" class="muted compact">No step traces yet.</p>
+              </article>
+            </div>
+
+            <div class="results-grid">
+              <div>
+                <h3>Current Run Details</h3>
+                <div class="readable-panel" id="runOutput">No run loaded.</div>
+              </div>
+              <div>
+                <h3>Past Runs</h3>
+                <div class="readable-panel" id="historyOutput">No history loaded.</div>
+              </div>
+            </div>
+
+            <div class="results-grid">
+              <div>
+                <h3>Final Output</h3>
+                <div class="readable-panel output-panel" id="runResultOutput">
+                  No output yet.
+                </div>
+              </div>
+              <div>
+                <h3>Last Error</h3>
+                <div class="readable-panel output-panel" id="runErrorOutput">
+                  No error.
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3>Step Traces</h3>
+              <div class="trace-list" id="tracesOutput">No traces loaded.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <p class="flash" id="flashMessage" aria-live="polite"></p>
+    </main>
+
+    <script src="/app/app.js"></script>
+  </body>
+</html>

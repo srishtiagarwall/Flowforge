@@ -4,15 +4,18 @@ import { Repository } from 'typeorm';
 import { Workflow } from './workflow.entity';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
+import { CompilerService } from './compiler/compiler.service';
 
 @Injectable()
 export class WorkflowsService {
   constructor(
     @InjectRepository(Workflow)
     private readonly repo: Repository<Workflow>,
+    private readonly compilerService: CompilerService,
   ) {}
 
   async create(tenantId: string, dto: CreateWorkflowDto): Promise<Workflow> {
+    this.compilerService.compile(dto.definition);
     const workflow = this.repo.create({
       ...dto,
       tenant_id: tenantId,
@@ -43,6 +46,7 @@ export class WorkflowsService {
     const workflow = await this.findOne(tenantId, id);
 
     if (dto.definition) {
+      this.compilerService.compile(dto.definition);
       workflow.version += 1;
     }
 

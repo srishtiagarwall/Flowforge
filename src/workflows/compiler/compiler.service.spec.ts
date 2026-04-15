@@ -1,10 +1,21 @@
+import { ConfigService } from '@nestjs/config';
 import { ConditionEvaluatorService } from '../../execution/conditions/condition-evaluator.service';
 import { CompilerService } from './compiler.service';
 
 describe('CompilerService', () => {
-  const service = new CompilerService(new ConditionEvaluatorService());
+  const createService = (overrides: Record<string, string> = {}) =>
+    new CompilerService(
+      new ConditionEvaluatorService(),
+      new ConfigService({
+        OPENAI_API_KEY: 'test-openai-key',
+        ANTHROPIC_API_KEY: 'test-anthropic-key',
+        GEMINI_API_KEY: 'test-gemini-key',
+        ...overrides,
+      }),
+    );
 
   it('compiles a valid workflow definition', () => {
+    const service = createService();
     const compiled = service.compile({
       id: 'wf_1',
       name: 'Lead qualification',
@@ -41,6 +52,7 @@ describe('CompilerService', () => {
   });
 
   it('rejects duplicate output keys', () => {
+    const service = createService();
     expect(() =>
       service.compile({
         id: 'wf_1',
@@ -63,5 +75,26 @@ describe('CompilerService', () => {
         ],
       }),
     ).toThrow('Duplicate output_key');
+  });
+
+  it('rejects llm nodes when the provider key is not configured', () => {
+    const service = createService({ OPENAI_API_KEY: '' });
+
+    expect(() =>
+      service.compile({
+        id: 'wf_missing_key',
+        name: 'Missing provider key',
+        trigger: 'api',
+        nodes: [
+          {
+            id: 'draft',
+            type: 'llm',
+            model: 'gpt-4o-mini',
+            prompt: 'Summarize {{input.text}}',
+            output_key: 'summary',
+          },
+        ],
+      }),
+    ).toThrow('OPENAI_API_KEY is not configured');
   });
 });
