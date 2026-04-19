@@ -39,7 +39,7 @@ export class RunsService {
   ) {
     this.redis = new Redis({
       host: config.get('REDIS_HOST', 'localhost'),
-      port: config.get<number>('REDIS_PORT', 6379),
+      port: config.get<number>('REDIS_PORT', 6380),
       lazyConnect: true,
       maxRetriesPerRequest: 1,
     });

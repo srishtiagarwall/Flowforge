@@ -56,6 +56,8 @@ const state = {
   pollTimer: null,
 };
 
+let tokenChartInstance = null;
+
 const defaultWorkflow = () => ({
   name: 'Gemini Lead Qualifier',
   status: 'active',
@@ -369,12 +371,85 @@ function renderCurrentRun() {
   renderTimeline(run.status);
 }
 
+function updateChart(runs) {
+  const ctx = document.getElementById('tokensChart');
+  if (!ctx) return;
+  
+  if (!runs || !runs.length) {
+    if (tokenChartInstance) {
+      tokenChartInstance.destroy();
+      tokenChartInstance = null;
+    }
+    return;
+  }
+  
+  const sortedRuns = [...runs].sort((a, b) => new Date(a.started_at) - new Date(b.started_at));
+  const labels = sortedRuns.map(r => new Date(r.started_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+  const data = sortedRuns.map(r => r.total_tokens || 0);
+  
+  if (tokenChartInstance) {
+    tokenChartInstance.data.labels = labels;
+    tokenChartInstance.data.datasets[0].data = data;
+    tokenChartInstance.update();
+  } else {
+    tokenChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Total Tokens',
+          data: data,
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.15)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#10b981',
+          pointBorderColor: '#fff',
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(24, 24, 27, 0.9)',
+            titleColor: '#f8fafc',
+            bodyColor: '#a1a1aa',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#64748b' }
+          },
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#64748b' },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+}
+
 function renderHistory() {
   const history = state.history;
   if (!history || !history.data?.length) {
     elements.historyOutput.innerHTML = 'No history loaded.';
+    updateChart([]);
     return;
   }
+
+  updateChart(history.data);
 
   elements.historyOutput.innerHTML = `
     <div class="history-list">

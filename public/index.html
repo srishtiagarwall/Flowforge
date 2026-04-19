@@ -7,21 +7,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
       rel="stylesheet"
     />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/app/app.css" />
   </head>
   <body>
     <div class="background-glow background-glow-a"></div>
     <div class="background-glow background-glow-b"></div>
+    
     <main class="shell">
       <section class="hero panel">
-        <div>
-          <p class="eyebrow">Frontend Phase</p>
-          <h1>Flowforge Console</h1>
+        <div class="hero-content">
+          <div class="hero-title">
+            <div class="hero-title-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h1>Flowforge Console</h1>
+          </div>
           <p class="hero-copy">
-            A thin operator UI over the current backend: tenant bootstrap,
+            A premium operator UI over the backend: tenant bootstrap,
             workflow JSON editing, run execution, status polling, and trace
             inspection.
           </p>
@@ -43,7 +51,7 @@
           <section class="panel">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">1. Tenant</p>
+                <span class="eyebrow">1. Tenant</span>
                 <h2>Bootstrap Access</h2>
               </div>
               <button class="ghost-button" id="clearSessionButton" type="button">
@@ -70,7 +78,7 @@
               <span>Active API key</span>
               <input id="apiKeyInput" type="text" placeholder="ff_..." />
             </label>
-            <p class="muted">
+            <p class="muted" style="margin-top: 8px; font-size: 0.85rem;">
               The console stores your current API key in local storage for this browser.
             </p>
             <pre class="output" id="tenantOutput">No tenant created yet.</pre>
@@ -79,10 +87,11 @@
           <section class="panel">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">2. Workflows</p>
+                <span class="eyebrow">2. Workflows</span>
                 <h2>List And Select</h2>
               </div>
               <button class="ghost-button" id="refreshWorkflowsButton" type="button">
+                <svg style="width:16px;height:16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 Refresh
               </button>
             </div>
@@ -94,7 +103,7 @@
           <section class="panel">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">3. Editor</p>
+                <span class="eyebrow">3. Editor</span>
                 <h2>Create Or Update Workflow</h2>
               </div>
               <div class="button-row">
@@ -107,7 +116,7 @@
               </div>
             </div>
 
-            <form id="workflowForm" class="stack">
+            <form id="workflowForm" class="stack" style="gap: 16px;">
               <div class="form-grid">
                 <label>
                   <span>Name</span>
@@ -123,7 +132,7 @@
               </div>
               <label class="block-field">
                 <span>Definition JSON</span>
-                <textarea id="workflowDefinition" rows="18"></textarea>
+                <textarea id="workflowDefinition" rows="14"></textarea>
               </label>
               <div class="button-row">
                 <button class="primary-button" type="submit">Save Workflow</button>
@@ -138,7 +147,7 @@
           <section class="panel">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">4. Runs</p>
+                <span class="eyebrow">4. Runs</span>
                 <h2>Trigger And Inspect</h2>
               </div>
               <div class="button-row">
@@ -151,7 +160,7 @@
               </div>
             </div>
 
-            <form id="runForm" class="stack">
+            <form id="runForm" class="stack" style="gap: 16px;">
               <div class="form-grid">
                 <label>
                   <span>Idempotency key</span>
@@ -164,9 +173,14 @@
               </div>
               <label class="block-field">
                 <span>Run input JSON</span>
-                <textarea id="runInput" rows="8"></textarea>
+                <textarea id="runInput" rows="6"></textarea>
               </label>
-              <button class="primary-button" type="submit">Trigger Run</button>
+              <div class="button-row">
+                <button class="primary-button" type="submit">
+                  <svg style="width:18px;height:18px;margin-right:-4px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Trigger Run
+                </button>
+              </div>
             </form>
 
             <div class="explain-box" id="runExplainBox">
@@ -175,21 +189,21 @@
 
             <div class="timeline" id="runTimeline">
               <div class="timeline-step">
-                <span class="timeline-dot"></span>
+                <div class="timeline-dot"></div>
                 <div>
                   <strong>Queued</strong>
                   <span>The run record has been created.</span>
                 </div>
               </div>
               <div class="timeline-step">
-                <span class="timeline-dot"></span>
+                <div class="timeline-dot"></div>
                 <div>
                   <strong>Running</strong>
                   <span>The worker is executing workflow nodes.</span>
                 </div>
               </div>
               <div class="timeline-step">
-                <span class="timeline-dot"></span>
+                <div class="timeline-dot"></div>
                 <div>
                   <strong>Done</strong>
                   <span>Output and traces have been persisted.</span>
@@ -200,51 +214,61 @@
             <div class="summary-grid">
               <article class="summary-card">
                 <span class="status-label">Current Run</span>
-                <strong id="runStatusBadge">No run</strong>
-                <p id="runMetaText" class="muted compact">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <strong id="runStatusBadge">No run</strong>
+                </div>
+                <p id="runMetaText" class="muted" style="font-size:0.85rem;margin-top:8px;">
                   Trigger a workflow to populate this view.
                 </p>
               </article>
               <article class="summary-card">
-                <span class="status-label">Tokens</span>
-                <strong id="runTokensValue">0</strong>
-                <p id="runAttemptText" class="muted compact">Attempts: 0</p>
+                <span class="status-label">Tokens Used</span>
+                <strong id="runTokensValue" style="color: var(--accent-secondary)">0</strong>
+                <p id="runAttemptText" class="muted" style="font-size:0.85rem;margin-top:8px;">Attempts: 0</p>
               </article>
               <article class="summary-card">
                 <span class="status-label">Trace Count</span>
-                <strong id="runTraceCount">0</strong>
-                <p id="runTraceHint" class="muted compact">No step traces yet.</p>
+                <strong id="runTraceCount" style="color: var(--accent-primary)">0</strong>
+                <p id="runTraceHint" class="muted" style="font-size:0.85rem;margin-top:8px;">No step traces yet.</p>
               </article>
             </div>
 
             <div class="results-grid">
               <div>
-                <h3>Current Run Details</h3>
+                <h3 style="margin-bottom: 12px; font-size: 1.1rem; color: var(--text-secondary);">Current Run Details</h3>
                 <div class="readable-panel" id="runOutput">No run loaded.</div>
               </div>
               <div>
-                <h3>Past Runs</h3>
+                <h3 style="margin-bottom: 12px; font-size: 1.1rem; color: var(--text-secondary);">Past Runs</h3>
                 <div class="readable-panel" id="historyOutput">No history loaded.</div>
               </div>
             </div>
 
+            <!-- Charting Section -->
+            <div style="margin-top: 32px;">
+              <h3 style="margin-bottom: 12px; font-size: 1.1rem; color: var(--text-secondary);">Run Token Analytics</h3>
+              <div class="chart-container">
+                <canvas id="tokensChart"></canvas>
+              </div>
+            </div>
+
             <div class="results-grid">
               <div>
-                <h3>Final Output</h3>
+                <h3 style="margin-bottom: 12px; font-size: 1.1rem; color: var(--text-secondary);">Final Output</h3>
                 <div class="readable-panel output-panel" id="runResultOutput">
                   No output yet.
                 </div>
               </div>
               <div>
-                <h3>Last Error</h3>
+                <h3 style="margin-bottom: 12px; font-size: 1.1rem; color: var(--text-secondary);">Last Error</h3>
                 <div class="readable-panel output-panel" id="runErrorOutput">
                   No error.
                 </div>
               </div>
             </div>
 
-            <div>
-              <h3>Step Traces</h3>
+            <div style="margin-top: 32px;">
+              <h3 style="margin-bottom: 12px; font-size: 1.1rem; color: var(--text-secondary);">Step Traces</h3>
               <div class="trace-list" id="tracesOutput">No traces loaded.</div>
             </div>
           </section>
